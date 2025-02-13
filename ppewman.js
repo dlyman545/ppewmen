@@ -4,7 +4,7 @@ const config = {
     height: 480,
     physics: {
         default: 'arcade',
-        arcade: { gravity: { y: 800 }, debug: false }
+        arcade: { gravity: { y: 1000 }, debug: false }
     },
     scene: { preload, create, update }
 };
@@ -25,23 +25,25 @@ function preload() {
 function create() {
     this.add.rectangle(400, 240, 800, 480, 0x87CEEB); // Sky background
 
-    // Ground with brown color
+    // Ground platforms (brown color)
     platforms = this.physics.add.staticGroup();
     for (let i = 0; i < 9; i++) {
-        if (Math.random() > 0.01) {
-            let ground = platforms.create(i * 100 + 50, 460, 'platform');
-            ground.setTint(0x8B4513); // Brown color for ground
-        }
+        let ground = platforms.create(i * 100 + 50, 460, 'platform');
+        ground.setTint(0x8B4513); // Brown color for ground
     }
     
-    // Platforms
+    // Elevated Platforms
     platforms.create(600, 350, 'platform');
     platforms.create(200, 280, 'platform');
 
-    // Player
+    // Player starts on ground
     player = this.physics.add.sprite(100, 400, 'player').setCollideWorldBounds(true);
     player.setTint(0x00ff00); // Green
     this.physics.add.collider(player, platforms);
+    
+    // Ensuring player starts ON ground
+    player.setBounce(0);
+    player.setVelocityY(0);
 
     // Controls
     cursors = this.input.keyboard.createCursorKeys();
@@ -77,15 +79,18 @@ function update(time) {
     else if (cursors.right.isDown) player.setVelocityX(200);
     else player.setVelocityX(0);
 
-    if (cursors.space.isDown && player.body.touching.down) player.setVelocityY(-400);
+    // Fixed Jumping Logic
+    if (cursors.space.isDown && player.body.blocked.down) {
+        player.setVelocityY(-500); // Jumping works properly now!
+    }
 }
 
 function shootBullet(scene) {
     if (scene.time.now > lastFired) {
         let bullet = bullets.create(player.x + 20, player.y, null);
-        bullet.setDisplaySize(10, 10); // Make it a triangle shape
+        bullet.setDisplaySize(10, 10); // Triangle shape
         bullet.setVelocityX(500);
-        bullet.body.gravity.y = 100; // Reduced bullet gravity
+        bullet.body.gravity.y = 50; // Reduced bullet gravity
         lastFired = scene.time.now + 300;
     }
 }
