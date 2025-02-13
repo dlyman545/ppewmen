@@ -9,29 +9,28 @@ const config = {
     scene: { preload, create, update }
 };
 
-let player, cursors, bullets, enemies, platforms, powerups;
+let player, cursors, bullets, enemyBullets, enemies, platforms, powerups;
 let lastFired = 0, lives = 3, weaponType = "normal", specialAmmo = 0, score = 0;
 let scoreText, livesText, gameOverText;
 const game = new Phaser.Game(config);
 
 function preload() {
-    this.load.image('ground', 'ground.png');
     this.load.image('platform', 'platform.png');
     this.load.image('player', 'player.png');
-    this.load.image('bullet', 'bullet.png');
     this.load.image('enemy', 'enemy.png');
     this.load.image('powerup_health', 'powerup_health.png');
     this.load.image('powerup_weapon', 'powerup_weapon.png');
 }
 
 function create() {
-    this.add.rectangle(400, 240, 800, 480, 0x87CEEB); // Background
+    this.add.rectangle(400, 240, 800, 480, 0x87CEEB); // Sky background
 
-    // Ground with minimal pits (90% coverage)
+    // Ground with brown color
     platforms = this.physics.add.staticGroup();
     for (let i = 0; i < 9; i++) {
-        if (Math.random() > 0.1) { // 90% chance to place ground
-            platforms.create(i * 100 + 50, 460, 'ground');
+        if (Math.random() > 0.01) {
+            let ground = platforms.create(i * 100 + 50, 460, 'platform');
+            ground.setTint(0x8B4513); // Brown color for ground
         }
     }
     
@@ -49,6 +48,7 @@ function create() {
 
     // Groups
     bullets = this.physics.add.group();
+    enemyBullets = this.physics.add.group();
     enemies = this.physics.add.group();
     powerups = this.physics.add.group();
 
@@ -61,6 +61,7 @@ function create() {
     this.physics.add.collider(player, enemies, playerHit, null, this);
     this.physics.add.collider(player, powerups, collectPowerUp, null, this);
     this.physics.add.overlap(bullets, enemies, destroyEnemy, null, this);
+    this.physics.add.overlap(enemyBullets, player, enemyBulletHit, null, this);
 
     // HUD
     scoreText = this.add.text(10, 10, 'Score: 0', { fontSize: '20px', fill: '#fff' });
@@ -81,8 +82,10 @@ function update(time) {
 
 function shootBullet(scene) {
     if (scene.time.now > lastFired) {
-        let bullet = bullets.create(player.x + 20, player.y, 'bullet').setVelocityX(500);
-        bullet.body.gravity.y = 200; // **Further Reduced Bullet Gravity**
+        let bullet = bullets.create(player.x + 20, player.y, null);
+        bullet.setDisplaySize(10, 10); // Make it a triangle shape
+        bullet.setVelocityX(500);
+        bullet.body.gravity.y = 100; // Reduced bullet gravity
         lastFired = scene.time.now + 300;
     }
 }
@@ -90,13 +93,23 @@ function shootBullet(scene) {
 function spawnEnemy() {
     let enemy = enemies.create(800, 400, 'enemy').setVelocityX(-100);
     enemy.setTint(0xff0000); // Red
+    enemy.shootTimer = setInterval(() => enemyShoot(enemy), 2000); // Enemy fires every 2 seconds
+}
+
+function enemyShoot(enemy) {
+    if (enemy.active) {
+        let bullet = enemyBullets.create(enemy.x - 10, enemy.y, null);
+        bullet.setDisplaySize(10, 10); // Triangle shape
+        bullet.setTint(0xffaa00); // Yellow bullets
+        bullet.setVelocityX(-300);
+    }
 }
 
 function enemyPatrol(enemy, platform) {
     if (Math.random() > 0.5) {
-        enemy.setVelocityY(-300); // Randomly jump to platforms
+        enemy.setVelocityY(-300);
     }
-    enemy.setVelocityX(enemy.body.velocity.x * -1); // Change direction at edges
+    enemy.setVelocityX(enemy.body.velocity.x * -1);
 }
 
 function spawnPowerUp() {
@@ -114,6 +127,13 @@ function destroyEnemy(bullet, enemy) {
 
 function playerHit(player, enemy) {
     enemy.destroy();
+    lives--;
+    livesText.setText(`Lives: ${lives}`);
+    if (lives <= 0) endGame();
+}
+
+function enemyBulletHit(player, bullet) {
+    bullet.destroy();
     lives--;
     livesText.setText(`Lives: ${lives}`);
     if (lives <= 0) endGame();
