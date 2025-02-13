@@ -4,39 +4,44 @@ const config = {
     height: 480,
     physics: {
         default: 'arcade',
-        arcade: { gravity: { y: 500 }, debug: false }
+        arcade: { gravity: { y: 800 }, debug: false }
     },
     scene: { preload, create, update }
 };
 
-let player, cursors, bullets, enemies, platforms, powerups;
+let player, cursors, bullets, enemies, platforms, pits, powerups;
 let lastFired = 0, lives = 3, weaponType = "normal", specialAmmo = 0, score = 0;
-let scoreText, livesText;
-
+let scoreText, livesText, gameOverText;
 const game = new Phaser.Game(config);
 
 function preload() {
-    this.load.image('player', 'player.png'); // Replace with colored version
-    this.load.image('enemy', 'enemy.png'); // Replace with colored version
-    this.load.image('bullet', 'bullet.png');
     this.load.image('ground', 'ground.png');
     this.load.image('platform', 'platform.png');
+    this.load.image('player', 'player.png');
+    this.load.image('bullet', 'bullet.png');
+    this.load.image('enemy', 'enemy.png');
     this.load.image('powerup_health', 'powerup_health.png');
     this.load.image('powerup_weapon', 'powerup_weapon.png');
 }
 
 function create() {
-    this.add.rectangle(400, 240, 800, 480, 0x87CEEB); // Background color
+    this.add.rectangle(400, 240, 800, 480, 0x87CEEB); // Background
 
-    // Ground and platforms
+    // Ground with pits
     platforms = this.physics.add.staticGroup();
-    platforms.create(400, 460, 'ground').setScale(2).refreshBody();
+    for (let i = 0; i < 9; i++) {
+        if (Math.random() > 0.2) { // 80% chance to place ground
+            platforms.create(i * 100 + 50, 460, 'ground');
+        }
+    }
+    
+    // Platforms
     platforms.create(600, 350, 'platform');
     platforms.create(200, 280, 'platform');
 
-    // Player setup
+    // Player
     player = this.physics.add.sprite(100, 400, 'player').setCollideWorldBounds(true);
-    player.setTint(0x00ff00); // Green player
+    player.setTint(0x00ff00); // Green
     this.physics.add.collider(player, platforms);
 
     // Controls
@@ -47,20 +52,21 @@ function create() {
     enemies = this.physics.add.group();
     powerups = this.physics.add.group();
 
-    // Timers
+    // Enemy & Powerup Timers
     this.time.addEvent({ delay: 2000, callback: spawnEnemy, callbackScope: this, loop: true });
     this.time.addEvent({ delay: 10000, callback: spawnPowerUp, callbackScope: this, loop: true });
 
     // Collision handling
-    this.physics.add.collider(enemies, platforms);
+    this.physics.add.collider(enemies, platforms, enemyPatrol, null, this);
     this.physics.add.collider(player, enemies, playerHit, null, this);
     this.physics.add.collider(player, powerups, collectPowerUp, null, this);
     this.physics.add.overlap(bullets, enemies, destroyEnemy, null, this);
 
-    // Score & Lives HUD
+    // HUD
     scoreText = this.add.text(10, 10, 'Score: 0', { fontSize: '20px', fill: '#fff' });
     livesText = this.add.text(10, 40, 'Lives: 3', { fontSize: '20px', fill: '#fff' });
-
+    gameOverText = this.add.text(400, 240, '', { fontSize: '32px', fill: '#ff0000' }).setOrigin(0.5);
+    
     // Shooting
     this.input.keyboard.on('keydown-Z', () => shootBullet(this));
 }
@@ -70,28 +76,27 @@ function update(time) {
     else if (cursors.right.isDown) player.setVelocityX(200);
     else player.setVelocityX(0);
 
-    if (cursors.space.isDown && player.body.touching.down) player.setVelocityY(-300);
+    if (cursors.space.isDown && player.body.touching.down) player.setVelocityY(-400); // Fixed jumping power
 }
 
 function shootBullet(scene) {
     if (scene.time.now > lastFired) {
-        if (weaponType === "normal") {
-            bullets.create(player.x + 20, player.y, 'bullet').setVelocityX(500);
-        } else if (weaponType === "spread") {
-            bullets.create(player.x + 20, player.y, 'bullet').setVelocity(500, -50);
-            bullets.create(player.x + 20, player.y, 'bullet').setVelocityX(500);
-            bullets.create(player.x + 20, player.y, 'bullet').setVelocity(500, 50);
-        } else if (weaponType === "laser" && specialAmmo > 0) {
-            bullets.create(player.x + 20, player.y, 'bullet').setVelocityX(700);
-            specialAmmo--;
-        }
+        let bullet = bullets.create(player.x + 20, player.y, 'bullet').setVelocityX(500);
+        bullet.body.gravity.y = 400; // Reduced bullet gravity
         lastFired = scene.time.now + 300;
     }
 }
 
 function spawnEnemy() {
-    let enemy = enemies.create(800, 400, 'enemy').setVelocityX(-150);
-    enemy.setTint(0xff0000); // Red enemies
+    let enemy = enemies.create(800, 400, 'enemy').setVelocityX(-100);
+    enemy.setTint(0xff0000); // Red
+}
+
+function enemyPatrol(enemy, platform) {
+    enemy.setVelocityX(enemy.body.velocity.x * -1); // Change direction on collision
+    if (Math.random() > 0.5) {
+        enemy.setVelocityY(-300); // Random jumping
+    }
 }
 
 function spawnPowerUp() {
@@ -111,7 +116,7 @@ function playerHit(player, enemy) {
     enemy.destroy();
     lives--;
     livesText.setText(`Lives: ${lives}`);
-    if (lives <= 0) game.scene.scenes[0].scene.restart();
+    if (lives <= 0) endGame();
 }
 
 function collectPowerUp(player, powerup) {
@@ -124,4 +129,9 @@ function collectPowerUp(player, powerup) {
     }
     livesText.setText(`Lives: ${lives}`);
     powerup.destroy();
+}
+
+function endGame() {
+    gameOverText.setText("GAME OVER\nPress R to Restart");
+    this.input.keyboard.once('keydown-R', () => this.scene.restart());
 }
