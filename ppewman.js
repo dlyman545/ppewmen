@@ -9,7 +9,7 @@ const config = {
     scene: { preload, create, update }
 };
 
-let player, cursors, bullets, enemies, platforms, pits, powerups;
+let player, cursors, bullets, enemies, platforms, powerups;
 let lastFired = 0, lives = 3, weaponType = "normal", specialAmmo = 0, score = 0;
 let scoreText, livesText, gameOverText;
 const game = new Phaser.Game(config);
@@ -27,10 +27,10 @@ function preload() {
 function create() {
     this.add.rectangle(400, 240, 800, 480, 0x87CEEB); // Background
 
-    // Ground with pits
+    // Ground with minimal pits (90% coverage)
     platforms = this.physics.add.staticGroup();
     for (let i = 0; i < 9; i++) {
-        if (Math.random() > 0.2) { // 80% chance to place ground
+        if (Math.random() > 0.1) { // 90% chance to place ground
             platforms.create(i * 100 + 50, 460, 'ground');
         }
     }
@@ -76,13 +76,13 @@ function update(time) {
     else if (cursors.right.isDown) player.setVelocityX(200);
     else player.setVelocityX(0);
 
-    if (cursors.space.isDown && player.body.touching.down) player.setVelocityY(-400); // Fixed jumping power
+    if (cursors.space.isDown && player.body.touching.down) player.setVelocityY(-400);
 }
 
 function shootBullet(scene) {
     if (scene.time.now > lastFired) {
         let bullet = bullets.create(player.x + 20, player.y, 'bullet').setVelocityX(500);
-        bullet.body.gravity.y = 400; // Reduced bullet gravity
+        bullet.body.gravity.y = 200; // **Further Reduced Bullet Gravity**
         lastFired = scene.time.now + 300;
     }
 }
@@ -93,10 +93,10 @@ function spawnEnemy() {
 }
 
 function enemyPatrol(enemy, platform) {
-    enemy.setVelocityX(enemy.body.velocity.x * -1); // Change direction on collision
     if (Math.random() > 0.5) {
-        enemy.setVelocityY(-300); // Random jumping
+        enemy.setVelocityY(-300); // Randomly jump to platforms
     }
+    enemy.setVelocityX(enemy.body.velocity.x * -1); // Change direction at edges
 }
 
 function spawnPowerUp() {
